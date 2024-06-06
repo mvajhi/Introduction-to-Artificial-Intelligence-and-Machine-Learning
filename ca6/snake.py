@@ -44,8 +44,55 @@ class Snake:
         pass
     
     def create_state(self, snack, other_snake):
-        snake_distance = self.calc_snake_distance(other_snake)
-        pass
+        snake_distance, pos = self.calc_snake_distance(other_snake)
+        snake_side = self.calc_snake_side(pos)
+        snack_distance = self.calc_snack_distance(snack)
+        snack_side = self.calc_snack_side(snack)
+        return {
+            "snake_distance": snake_distance,
+            "snake_side": snake_side,
+            "snack_distance": snack_distance,
+            "snack_side": snack_side
+        }
+        
+    def calc_snack_distance(self, snack):
+        # calc manhattan distance between snake head and snack
+        return abs(snack.pos[0] - self.head.pos[0]) + abs(snack.pos[1] - self.head.pos[1])
+        
+    def calc_snack_side(self, snack):
+        # calc snack side in relation to the snake
+        if snack.pos[0] < self.head.pos[0]:
+            return 0
+        if snack.pos[0] > self.head.pos[0]:
+            return 1
+        if snack.pos[1] < self.head.pos[1]:
+            return 2
+        if snack.pos[1] > self.head.pos[1]:
+            return 3
+        
+    def calc_snake_side(self, pos):
+        # calc snake side in relation to the snake
+        if pos[0] < self.head.pos[0]:
+            return 0
+        if pos[0] >= self.head.pos[0]:
+            return 1
+        if pos[1] < self.head.pos[1]:
+            return 2
+        if pos[1] > self.head.pos[1]:
+            return 3
+
+    def calc_snake_distance(self, other_snake):
+        # calc manhattan distance between two snakes head and nerest cube
+        nearest_cube = other_snake.body[0]
+        nearest_val = abs(nearest_cube.pos[0] - self.head.pos[0]) + abs(nearest_cube.pos[1] - self.head.pos[1])
+        for cube in other_snake.body:
+            val = abs(cube.pos[0] - self.head.pos[0]) + abs(cube.pos[1] - self.head.pos[1])
+            if val < nearest_val:
+                nearest_val = val
+                nearest_cube = cube
+        return nearest_val, nearest_cube
+        
+        
 
     def move(self, snack, other_snake):
         state = self.create_state(snack, other_snake)
