@@ -69,6 +69,7 @@ class Snake:
             return 2
         if snack.pos[1] > self.head.pos[1]:
             return 3
+        return -1
         
     def calc_snake_side(self, pos):
         # calc snake side in relation to the snake
@@ -80,6 +81,7 @@ class Snake:
             return 2
         if pos[1] > self.head.pos[1]:
             return 3
+        return -1
 
     def calc_snake_distance(self, other_snake):
         # calc manhattan distance between two snakes head and nerest cube
@@ -125,7 +127,7 @@ class Snake:
             else:
                 c.move(c.dirnx, c.dirny)
 
-        # TODO: Create new state after moving and other needed values and return them
+        new_state = self.create_state(snack, other_snake)
         return state, new_state, action
     
     def check_out_of_board(self):
@@ -135,41 +137,42 @@ class Snake:
             return True
         return False
     
+    def calc_kill_reward(self, other_snake):
+        return KILL_REWARD + len(other_snake.body) * KILL_REWARD
+    
     def calc_reward(self, snack, other_snake):
         reward = 0
         win_self, win_other = False, False
         
         if self.check_out_of_board():
-            # TODO: Punish the snake for getting out of the board
             win_other = True
+            reward -= self.calc_kill_reward(other_snake)
             reset(self, other_snake)
         
         if self.head.pos == snack.pos:
             self.addCube()
             snack = Cube(randomSnack(ROWS, self), color=(0, 255, 0))
-            # TODO: Reward the snake for eating
+            reward += SNACK_REWARD
             
         if self.head.pos in list(map(lambda z: z.pos, self.body[1:])):
-            # TODO: Punish the snake for hitting itself
             win_other = True
             reset(self, other_snake)
+            reward -= self.calc_kill_reward(other_snake)
             
             
         if self.head.pos in list(map(lambda z: z.pos, other_snake.body)):
-            
             if self.head.pos != other_snake.head.pos:
-                # TODO: Punish the snake for hitting the other snake
                 win_other = True
+                reward -= self.calc_kill_reward(other_snake)
             else:
                 if len(self.body) > len(other_snake.body):
-                    # TODO: Reward the snake for hitting the head of the other snake and being longer
                     win_self = True
+                    reward += self.calc_kill_reward(other_snake)
                 elif len(self.body) == len(other_snake.body):
-                    # TODO: No winner
-                    pass
+                    reward += 0
                 else:
-                    # TODO: Punish the snake for hitting the head of the other snake and being shorter
                     win_other = True
+                    reward -= self.calc_kill_reward(other_snake)
                     
             reset(self, other_snake)
             
