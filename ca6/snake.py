@@ -21,11 +21,11 @@ class Snake:
         try:
             self.q_table = np.load(file_name)
         except:
-            self.q_table = None # TODO: Initialize Q-table
+            self.q_table = np.zeros((2,2,))
 
-        self.lr = None # TODO: Learning rate
-        self.discount_factor = None # TODO: Discount factor
-        self.epsilon = None # TODO: Epsilon
+        self.lr = 0.5
+        self.discount_factor = 0.7
+        self.epsilon = 0.2
 
     def get_optimal_policy(self, state):
         # TODO: Get optimal policy
@@ -42,9 +42,13 @@ class Snake:
     def update_q_table(self, state, action, next_state, reward):
         # TODO: Update Q-table
         pass
+    
+    def create_state(self, snack, other_snake):
+        snake_distance = self.calc_snake_distance(other_snake)
+        pass
 
     def move(self, snack, other_snake):
-        state = None # TODO: Create state
+        state = self.create_state(snack, other_snake)
         action = self.make_action(state)
 
         if action == 0: # Left
@@ -75,6 +79,7 @@ class Snake:
                 c.move(c.dirnx, c.dirny)
 
         # TODO: Create new state after moving and other needed values and return them
+        return state, new_state, action
     
     def check_out_of_board(self):
         headPos = self.head.pos
