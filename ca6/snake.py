@@ -21,40 +21,58 @@ class Snake:
         try:
             self.q_table = np.load(file_name)
         except:
-            self.q_table = np.zeros((2,2,))
+            self.q_table = dict()
 
         self.lr = 0.5
         self.discount_factor = 0.7
         self.epsilon = 0.2
 
     def get_optimal_policy(self, state):
-        # TODO: Get optimal policy
-        pass
+        return np.argmax(self.q_table[state])
 
     def make_action(self, state):
         chance = random.random()
-        if chance < self.epsilon:
+        if chance < self.epsilon or state not in self.q_table.keys():
             action = random.randint(0, 3)
         else:
             action = self.get_optimal_policy(state)
         return action
 
     def update_q_table(self, state, action, next_state, reward):
-        # TODO: Update Q-table
-        pass
+        if state not in self.q_table:
+            self.q_table[state] = np.zeros(4)
+        if next_state not in self.q_table:
+            self.q_table[next_state] = np.zeros(4)
+        sample = reward + self.discount_factor * np.max(self.q_table[next_state])
+        self.q_table[state][action] += self.lr * (sample - self.q_table[state][action])
     
     def create_state(self, snack, other_snake):
-        snake_distance, pos = self.calc_snake_distance(other_snake)
-        snake_side = self.calc_snake_side(pos)
-        snack_distance = self.calc_snack_distance(snack)
+        # snake_distance, pos = self.calc_snake_distance(other_snake)
+        # snake_side = self.calc_snake_side(pos)
+        # snack_distance = self.calc_snack_distance(snack)
+        neighbor = self.get_neighbor(3, other_snake)
         snack_side = self.calc_snack_side(snack)
-        return {
-            "snake_distance": snake_distance,
-            "snake_side": snake_side,
-            "snack_distance": snack_distance,
-            "snack_side": snack_side
-        }
+        return (neighbor, snack_side)
         
+    def get_neighbor(self, size, other_snake):
+        distance = (size - 1) // 2
+        tmp = np.array(range(distance + 1))
+        tmp = np.union1d(tmp, -tmp)
+        
+        output = []
+        for i in tmp + self.head.pos[0]:
+            for j in tmp + self.head.pos[1]:
+                if i < 1 or i >= ROWS - 1 or j < 1 or j >= ROWS - 1:
+                    output.append(0)
+                elif (i, j) in list(map(lambda z: z.pos, self.body)):
+                    output.append(0)
+                elif (i, j) in list(map(lambda z: z.pos, other_snake.body)):
+                    output.append(0)
+                elif (i, j) == other_snake.head.pos:
+                    output.append(2)
+                else:
+                    output.append(1)
+        return tuple(output)
     def calc_snack_distance(self, snack):
         # calc manhattan distance between snake head and snack
         return abs(snack.pos[0] - self.head.pos[0]) + abs(snack.pos[1] - self.head.pos[1])
@@ -94,8 +112,6 @@ class Snake:
                 nearest_cube = cube
         return nearest_val, nearest_cube
         
-        
-
     def move(self, snack, other_snake):
         state = self.create_state(snack, other_snake)
         action = self.make_action(state)
