@@ -5,6 +5,9 @@ from utility import *
 import random
 import random
 import numpy as np
+import pickle 
+import matplotlib.pyplot as plt
+import copy
 
 
 class Snake:
@@ -19,13 +22,18 @@ class Snake:
         self.dirnx = 0
         self.dirny = 1
         try:
-            self.q_table = np.load(file_name)
+            with open(file_name, 'rb') as f:
+                self.q_table = pickle.load(f)
         except:
             self.q_table = dict()
 
-        self.lr = 0.5
-        self.discount_factor = 0.7
-        self.epsilon = 0.2
+        self.lr = 0.3
+        self.discount_factor = 0.8
+        self.epsilon = 0.5
+        
+        self.hist = []
+        self.hist_reward = []
+        self.file_name = file_name
 
     def get_optimal_policy(self, state):
         return np.argmax(self.q_table[state])
@@ -41,18 +49,17 @@ class Snake:
     def update_q_table(self, state, action, next_state, reward):
         if state not in self.q_table:
             self.q_table[state] = np.zeros(4)
+            self.q_table[state][state[1]] = 1
         if next_state not in self.q_table:
             self.q_table[next_state] = np.zeros(4)
+            self.q_table[next_state][next_state[1]] = 1
         sample = reward + self.discount_factor * np.max(self.q_table[next_state])
         self.q_table[state][action] += self.lr * (sample - self.q_table[state][action])
     
     def create_state(self, snack, other_snake):
-        # snake_distance, pos = self.calc_snake_distance(other_snake)
-        # snake_side = self.calc_snake_side(pos)
-        # snack_distance = self.calc_snack_distance(snack)
         neighbor = self.get_neighbor(3, other_snake)
-        snack_side = self.calc_snack_side(snack)
-        return (neighbor, snack_side)
+        snake_side = self.calc_snake_side(snack)
+        return (neighbor, snake_side)
         
     def get_neighbor(self, size, other_snake):
         distance = (size - 1) // 2
@@ -69,50 +76,31 @@ class Snake:
                 elif (i, j) in list(map(lambda z: z.pos, other_snake.body)):
                     output.append(0)
                 elif (i, j) == other_snake.head.pos:
-                    output.append(2)
+                    output.append(0)
                 else:
                     output.append(1)
         return tuple(output)
+    
     def calc_snack_distance(self, snack):
         # calc manhattan distance between snake head and snack
         return abs(snack.pos[0] - self.head.pos[0]) + abs(snack.pos[1] - self.head.pos[1])
-        
-    def calc_snack_side(self, snack):
-        # calc snack side in relation to the snake
-        if snack.pos[0] < self.head.pos[0]:
-            return 0
-        if snack.pos[0] > self.head.pos[0]:
-            return 1
-        if snack.pos[1] < self.head.pos[1]:
-            return 2
-        if snack.pos[1] > self.head.pos[1]:
-            return 3
-        return -1
-        
-    def calc_snake_side(self, pos):
-        # calc snake side in relation to the snake
-        if pos[0] < self.head.pos[0]:
-            return 0
-        if pos[0] >= self.head.pos[0]:
-            return 1
-        if pos[1] < self.head.pos[1]:
-            return 2
-        if pos[1] > self.head.pos[1]:
-            return 3
-        return -1
 
-    def calc_snake_distance(self, other_snake):
-        # calc manhattan distance between two snakes head and nerest cube
-        nearest_cube = other_snake.body[0]
-        nearest_val = abs(nearest_cube.pos[0] - self.head.pos[0]) + abs(nearest_cube.pos[1] - self.head.pos[1])
-        for cube in other_snake.body:
-            val = abs(cube.pos[0] - self.head.pos[0]) + abs(cube.pos[1] - self.head.pos[1])
-            if val < nearest_val:
-                nearest_val = val
-                nearest_cube = cube
-        return nearest_val, nearest_cube
+    def calc_snake_side(self, snack):
+        # calc snake side in relation to the snake
+        if abs(snack.pos[0] - self.head.pos[0]) > abs(snack.pos[1] - self.head.pos[1]):
+            if snack.pos[0] < self.head.pos[0]:
+                return 0
+            if snack.pos[0] > self.head.pos[0]:
+                return 1
+        else:
+            if snack.pos[1] < self.head.pos[1]:
+                return 2
+            if snack.pos[1] > self.head.pos[1]:
+                return 3
+        return -1
         
     def move(self, snack, other_snake):
+        self.pre_head = copy.deepcopy(self.head)
         state = self.create_state(snack, other_snake)
         action = self.make_action(state)
 
@@ -153,47 +141,64 @@ class Snake:
             return True
         return False
     
-    def calc_kill_reward(self, other_snake):
-        return KILL_REWARD + len(other_snake.body) * KILL_REWARD
+    def calc_snack_reward(self, snack):
+        dist1 = abs(snack.pos[0] - self.pre_head.pos[0]) + abs(snack.pos[1] - self.pre_head.pos[1])
+        dist2 = abs(snack.pos[0] - self.head.pos[0]) + abs(snack.pos[1] - self.head.pos[1])
+        if dist2 - dist1 < 0:
+            return SNACK_RATE
+        else:
+            return -SNACK_RATE * 1.5
+    
     
     def calc_reward(self, snack, other_snake):
         reward = 0
         win_self, win_other = False, False
         
+        reward += self.calc_snack_reward(snack)
+        
         if self.check_out_of_board():
+            # TODO: Punish the snake for getting out of the board
             win_other = True
-            reward -= self.calc_kill_reward(other_snake)
-            reset(self, other_snake)
+            reward += LOSE_REWARD
+            reset(self, other_snake, win_other)
         
         if self.head.pos == snack.pos:
             self.addCube()
             snack = Cube(randomSnack(ROWS, self), color=(0, 255, 0))
-            reward += SNACK_REWARD
+            # TODO: Reward the snake for eating
+            reward += EAT_REWARD
+            
             
         if self.head.pos in list(map(lambda z: z.pos, self.body[1:])):
+            # TODO: Punish the snake for hitting itself
             win_other = True
-            reset(self, other_snake)
-            reward -= self.calc_kill_reward(other_snake)
+            reward += LOSE_REWARD
+            reset(self, other_snake, win_other)
             
             
         if self.head.pos in list(map(lambda z: z.pos, other_snake.body)):
+            
             if self.head.pos != other_snake.head.pos:
+                # TODO: Punish the snake for hitting the other snake
+                reward += LOSE_REWARD
                 win_other = True
-                reward -= self.calc_kill_reward(other_snake)
             else:
                 if len(self.body) > len(other_snake.body):
+                    # TODO: Reward the snake for hitting the head of the other snake and being longer
+                    reward += WIN_REWARD
                     win_self = True
-                    reward += self.calc_kill_reward(other_snake)
                 elif len(self.body) == len(other_snake.body):
-                    reward += 0
+                    # TODO: No winner
+                    pass
                 else:
+                    # TODO: Punish the snake for hitting the head of the other snake and being shorter
+                    reward += LOSE_REWARD
                     win_other = True
-                    reward -= self.calc_kill_reward(other_snake)
                     
-            reset(self, other_snake)
-            
+            reset(self, other_snake, win_other)
+        self.hist_reward.append(reward)
         return snack, reward, win_self, win_other
-    
+
     def reset(self, pos):
         self.head = Cube(pos, color=self.color)
         self.body = []
@@ -201,6 +206,19 @@ class Snake:
         self.turns = {}
         self.dirnx = 0
         self.dirny = 1
+        if len(self.hist_reward) > 2 and 's1' in self.file_name:
+            self.hist.append(np.mean(self.hist_reward))
+            self.hist_reward = []
+            
+            if len(self.hist) % 10 == 9:
+                plt.plot(self.hist)
+                plt.savefig(self.file_name[:3] + 'img')
+
+            if len(self.hist) % 100 == 99:
+                self.lr *= 0.95
+                self.epsilon *= 0.92
+                print(self.lr, self.epsilon)
+            
 
     def addCube(self):
         tail = self.body[-1]
@@ -226,5 +244,6 @@ class Snake:
                 c.draw(surface)
 
     def save_q_table(self, file_name):
-        np.save(file_name, self.q_table)
+        with open(file_name, 'wb') as f:
+            pickle.dump(self.q_table, f)
         
