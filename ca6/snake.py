@@ -27,9 +27,9 @@ class Snake:
         except:
             self.q_table = dict()
 
-        self.lr = 0.3
-        self.discount_factor = 0.8
-        self.epsilon = 0.5
+        self.lr = 0.1
+        self.discount_factor = 0.7
+        self.epsilon = 0.01
         
         self.hist = []
         self.hist_reward = []
