@@ -6,9 +6,11 @@ import pygame
 import numpy as np
 from tkinter import messagebox
 from snake import Snake
+import os
 
 
 def main():
+    os.environ["SDL_VIDEODRIVER"] = "dummy"
     pygame.init()
     win = pygame.display.set_mode((WIDTH, HEIGHT))
 

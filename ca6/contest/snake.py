@@ -116,8 +116,10 @@ class Snake:
         self.body.append(self.head)
         self.dirnx = 0
         self.dirny = 1
+        self.count = 0
 
         self.agent = DQNAgent(file_name)
+        self.file_name = file_name
 
     def make_action(self, state):
         return self.agent.act(state)
@@ -141,6 +143,7 @@ class Snake:
                     board[i][j] = OTHER_BODY
                 elif (i, j) == snack.pos:
                     board[i][j] = FOOD
+        board = np.expand_dims(board, axis=0)
         return board
                     
         
@@ -204,7 +207,7 @@ class Snake:
         if self.check_out_of_board():
             win_other = True
             reward += LOSE_REWARD
-            reset(self, other_snake, win_other)
+            reset(self, other_snake)
         
         if self.head.pos == snack.pos:
             self.addCube()
@@ -215,7 +218,7 @@ class Snake:
         if self.head.pos in list(map(lambda z: z.pos, self.body[1:])):
             win_other = True
             reward += LOSE_REWARD
-            reset(self, other_snake, win_other)
+            reset(self, other_snake)
             
             
         if self.head.pos in list(map(lambda z: z.pos, other_snake.body)):
@@ -233,7 +236,7 @@ class Snake:
                     reward += LOSE_REWARD
                     win_other = True
                     
-            reset(self, other_snake, win_other)
+            reset(self, other_snake)
         return snack, reward, win_self, win_other
 
     def reset(self, pos):
@@ -246,6 +249,11 @@ class Snake:
         
         if len(self.agent.memory) > self.agent.batch_size:
             self.agent.replay(self.agent.batch_size)
+            self.count += 1
+            if self.count % 10 == 1:
+                self.save_q_table(self.file_name)
+                print(f'save {self.count}')
+                
             
 
     def addCube(self):
